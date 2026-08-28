@@ -1,10 +1,10 @@
-import { mybusiness_v4 } from 'googleapis';
+import { google } from 'googleapis';
 import { ReviewCheckResult } from '@/types';
 
 const SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL!;
 const PRIVATE_KEY = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY!.replace(/\\n/g, '\n');
 
-export const googleAuth = new mybusiness_v4.auth.JWT({
+export const googleAuth = new google.auth.JWT({
   email: SERVICE_ACCOUNT_EMAIL,
   key: PRIVATE_KEY,
   scopes: [
@@ -13,7 +13,8 @@ export const googleAuth = new mybusiness_v4.auth.JWT({
   ],
 });
 
-const mybusiness = new mybusiness_v4.Mybusiness({ auth: googleAuth });
+// @ts-ignore – google.mybusiness is callable at runtime
+const mybusiness = google.mybusiness({ version: 'v4', auth: googleAuth });
 
 export async function fetchNewReviews(
   accountId: string,

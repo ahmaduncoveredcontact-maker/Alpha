@@ -4,7 +4,6 @@ import { google } from 'googleapis';
 import { googleAuth } from '@/lib/services/googleMyBusiness';
 import { getAdminSession } from '@/lib/auth/session';
 
-// Helper to fetch all accounts the service account has access to
 async function getAccounts() {
   const accountManagement = google.mybusinessaccountmanagement({
     version: 'v1',
@@ -14,7 +13,6 @@ async function getAccounts() {
   return response.data.accounts || [];
 }
 
-// Helper to fetch all locations for a given account
 async function getLocations(accountId: string) {
   const businessInfo = google.mybusinessbusinessinformation({
     version: 'v1',
@@ -28,13 +26,11 @@ async function getLocations(accountId: string) {
 }
 
 export async function GET() {
-  // Admin session check
   if (!getAdminSession()) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
-    // 1. Fetch all clients from Supabase
     const { data: clients, error: clientsError } = await supabaseServer
       .from('clients')
       .select('id, business_name, slug');
@@ -43,7 +39,6 @@ export async function GET() {
       throw new Error(`Failed to fetch clients: ${clientsError.message}`);
     }
 
-    // 2. Fetch all accounts and locations from GBP
     const accounts = await getAccounts();
     let allLocations: any[] = [];
     for (const account of accounts) {
@@ -60,7 +55,6 @@ export async function GET() {
       );
     }
 
-    // 3. Match clients by business name (case-insensitive, trimmed)
     const matched: { clientId: string; accountId: string; locationId: string }[] = [];
     const unmatchedLocations: any[] = [];
 
@@ -78,7 +72,6 @@ export async function GET() {
       }
     }
 
-    // 4. Update matched clients with GBP IDs
     let updatedCount = 0;
     for (const match of matched) {
       const { error: updateError } = await supabaseServer
@@ -89,14 +82,9 @@ export async function GET() {
         })
         .eq('id', match.clientId);
 
-      if (updateError) {
-        console.error(`Failed to update client ${match.clientId}:`, updateError);
-      } else {
-        updatedCount++;
-      }
+      if (!updateError) updatedCount++;
     }
 
-    // 5. Return results
     return NextResponse.json({
       success: true,
       updatedCount,
@@ -109,7 +97,7 @@ export async function GET() {
         accountId: l.accountId,
         locationId: l.locationId,
       })),
-      message: `✅ Synced ${updatedCount} clients. ${unmatchedLocations.length} locations found without a matching client.`,
+      message: `✅ Synced ${updatedCount} clients. ${unmatchedLocations.length} locations unmatched.`,
     });
   } catch (error: any) {
     console.error('Sync GBP error:', error);
