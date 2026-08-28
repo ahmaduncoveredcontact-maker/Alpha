@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
 import { getAdminSession } from '@/lib/auth/session';
 import { google } from 'googleapis';
-import { createSign } from 'crypto';
 
 // ---- EXACT AUTH LOGIC FROM DEBUG ENDPOINT ----
 function getCleanedKey() {
@@ -25,7 +24,6 @@ function getAuth() {
     ],
   });
 }
-
 // ---- END OF AUTH LOGIC ----
 
 export async function GET() {
@@ -34,7 +32,7 @@ export async function GET() {
   }
 
   // Step 1: Test auth exactly like debug endpoint
-  let authTest = { success: false, error: 'Not tested' };
+  let authTest: { success: boolean; error?: string } = { success: false };
   try {
     const auth = getAuth();
     await auth.authorize();
@@ -46,8 +44,7 @@ export async function GET() {
   if (!authTest.success) {
     return NextResponse.json({
       success: false,
-      error: 'Authentication failed: ' + authTest.error,
-      details: authTest.error,
+      error: 'Authentication failed: ' + (authTest.error || 'Unknown error'),
     }, { status: 401 });
   }
 
