@@ -1,56 +1,28 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
+import { getGoogleAuth, testGoogleAuth } from '@/lib/auth/googleAuth';
 import { getAdminSession } from '@/lib/auth/session';
 import { google } from 'googleapis';
-
-// ---- EXACT AUTH LOGIC FROM DEBUG ENDPOINT ----
-function getCleanedKey() {
-  let key = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || '';
-  key = key.replace(/^["']|["']$/g, '');
-  key = key.replace(/\\n/g, '\n');
-  key = key.trim();
-  return key;
-}
-
-function getAuth() {
-  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const key = getCleanedKey();
-  return new google.auth.JWT({
-    email,
-    key,
-    scopes: [
-      'https://www.googleapis.com/auth/business.manage',
-      'https://www.googleapis.com/auth/business.accountmanagement.accounts.readonly',
-    ],
-  });
-}
-// ---- END OF AUTH LOGIC ----
 
 export async function GET() {
   if (!getAdminSession()) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Step 1: Test auth exactly like debug endpoint
-  let authTest: { success: boolean; error?: string } = { success: false };
-  try {
-    const auth = getAuth();
-    await auth.authorize();
-    authTest = { success: true };
-  } catch (err: any) {
-    authTest = { success: false, error: err.message };
-  }
-
+  // Step 1: Test credentials using the shared module
+  const authTest = await testGoogleAuth();
   if (!authTest.success) {
     return NextResponse.json({
       success: false,
-      error: 'Authentication failed: ' + (authTest.error || 'Unknown error'),
+      error: 'Authentication failed: ' + authTest.error,
     }, { status: 401 });
   }
 
   // Step 2: Proceed with sync logic
   try {
-    const auth = getAuth();
+    const auth = getGoogleAuth();
+
+    // List accounts
     const accountManagement = google.mybusinessaccountmanagement({
       version: 'v1',
       auth,
@@ -111,6 +83,7 @@ export async function GET() {
       });
     }
 
+    // Match locations with clients
     const matched: { clientId: string; accountId: string; locationId: string }[] = [];
     const unmatchedLocations: any[] = [];
 
