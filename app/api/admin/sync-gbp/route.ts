@@ -4,7 +4,7 @@ import { getAdminSession } from '@/lib/auth/session';
 import { google } from 'googleapis';
 import { createSign } from 'crypto';
 
-// ---- Direct copy of the working auth logic from debug-auth ----
+// ---- EXACT AUTH LOGIC FROM DEBUG ENDPOINT ----
 function getCleanedKey() {
   let key = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || '';
   key = key.replace(/^["']|["']$/g, '');
@@ -25,55 +25,42 @@ function getAuth() {
     ],
   });
 }
-// ---- End of auth logic ----
 
-async function getAccounts() {
-  const auth = getAuth();
-  const accountManagement = google.mybusinessaccountmanagement({
-    version: 'v1',
-    auth,
-  });
-  const response = await accountManagement.accounts.list();
-  return response.data.accounts || [];
-}
-
-async function getLocations(accountId: string) {
-  const auth = getAuth();
-  const businessInfo = google.mybusinessbusinessinformation({
-    version: 'v1',
-    auth,
-  });
-  const response = await businessInfo.accounts.locations.list({
-    parent: `accounts/${accountId}`,
-    pageSize: 100,
-  });
-  return response.data.locations || [];
-}
+// ---- END OF AUTH LOGIC ----
 
 export async function GET() {
   if (!getAdminSession()) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // Step 1: Test auth exactly like debug endpoint
+  let authTest = { success: false, error: 'Not tested' };
   try {
-    // Test auth first (same as debug)
-    try {
-      const auth = getAuth();
-      await auth.authorize();
-    } catch (err: any) {
-      return NextResponse.json({
-        success: false,
-        error: 'Authentication failed: ' + err.message,
-      }, { status: 401 });
-    }
+    const auth = getAuth();
+    await auth.authorize();
+    authTest = { success: true };
+  } catch (err: any) {
+    authTest = { success: false, error: err.message };
+  }
 
-    const { data: clients, error: clientsError } = await supabaseServer
-      .from('clients')
-      .select('id, business_name, slug');
+  if (!authTest.success) {
+    return NextResponse.json({
+      success: false,
+      error: 'Authentication failed: ' + authTest.error,
+      details: authTest.error,
+    }, { status: 401 });
+  }
 
-    if (clientsError) throw new Error(`Failed to fetch clients: ${clientsError.message}`);
+  // Step 2: Proceed with sync logic
+  try {
+    const auth = getAuth();
+    const accountManagement = google.mybusinessaccountmanagement({
+      version: 'v1',
+      auth,
+    });
+    const accountsResponse = await accountManagement.accounts.list();
+    const accounts = accountsResponse.data.accounts || [];
 
-    const accounts = await getAccounts();
     if (accounts.length === 0) {
       return NextResponse.json({
         success: true,
@@ -85,10 +72,26 @@ export async function GET() {
       });
     }
 
+    // Fetch clients
+    const { data: clients, error: clientsError } = await supabaseServer
+      .from('clients')
+      .select('id, business_name, slug');
+
+    if (clientsError) throw new Error(`Failed to fetch clients: ${clientsError.message}`);
+
     let allLocations: any[] = [];
+    const businessInfo = google.mybusinessbusinessinformation({
+      version: 'v1',
+      auth,
+    });
+
     for (const account of accounts) {
       const accountId = account.name!.replace('accounts/', '');
-      const locations = await getLocations(accountId);
+      const locationsResponse = await businessInfo.accounts.locations.list({
+        parent: `accounts/${accountId}`,
+        pageSize: 100,
+      });
+      const locations = locationsResponse.data.locations || [];
       allLocations = allLocations.concat(
         locations.map((loc: any) => ({
           accountId,
