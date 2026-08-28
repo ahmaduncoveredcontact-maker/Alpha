@@ -10,13 +10,14 @@ function getAuthCredentials() {
   if (!email) throw new Error('Missing GOOGLE_SERVICE_ACCOUNT_EMAIL');
   if (!key) throw new Error('Missing GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY');
 
-  // Clean key
-  key = key.replace(/^["']|["']$/g, '');          // Remove outer quotes
-  key = key.replace(/\\n/g, '\n');                // Convert \n to newlines
-  key = key.replace(/---BEGIN/g, '-----BEGIN');   // Fix malformed header
-  key = key.replace(/---END/g, '-----END');       // Fix malformed footer
+  // 1. Remove outer quotes (single or double)
+  key = key.replace(/^["']|["']$/g, '');
+  // 2. Replace literal \n with actual newlines
+  key = key.replace(/\\n/g, '\n');
+  // 3. Remove any extra whitespace
+  key = key.trim();
 
-  // Validate
+  // Validate (do NOT attempt to fix malformed header)
   if (!key.includes('-----BEGIN PRIVATE KEY-----')) {
     throw new Error('Private key does not contain BEGIN PRIVATE KEY');
   }
