@@ -1,11 +1,22 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import { googleAuth } from '@/lib/auth/googleAuth';
+import { googleAuth, testGoogleAuth } from '@/lib/auth/googleAuth';
 import { getAdminSession } from '@/lib/auth/session';
 
 export async function GET() {
   if (!getAdminSession()) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // First, test the auth credentials
+  const authTest = await testGoogleAuth();
+  if (!authTest.success) {
+    return NextResponse.json({
+      success: false,
+      error: 'Authentication failed',
+      details: authTest.error,
+      stack: authTest.stack,
+    }, { status: 401 });
   }
 
   try {

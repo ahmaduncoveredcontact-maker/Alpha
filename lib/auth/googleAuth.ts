@@ -10,20 +10,16 @@ if (!PRIVATE_KEY) {
   throw new Error('Missing GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY');
 }
 
-// Clean the key:
-// 1. Remove surrounding quotes (if any)
-// 2. Replace escaped newlines with actual newlines
-// 3. Trim extra whitespace
-// 4. Ensure it starts with -----BEGIN and ends with -----END
-PRIVATE_KEY = PRIVATE_KEY.replace(/^["']|["']$/g, ''); // strip outer quotes
-PRIVATE_KEY = PRIVATE_KEY.replace(/\\n/g, '\n'); // convert \n to newlines
+// Clean the key
+PRIVATE_KEY = PRIVATE_KEY.replace(/^["']|["']$/g, '');
+PRIVATE_KEY = PRIVATE_KEY.replace(/\\n/g, '\n');
 
 // Validate PEM format
 if (!PRIVATE_KEY.includes('-----BEGIN PRIVATE KEY-----')) {
-  throw new Error('Private key does not contain BEGIN PRIVATE KEY');
+  throw new Error('Private key is missing BEGIN PRIVATE KEY');
 }
 if (!PRIVATE_KEY.includes('-----END PRIVATE KEY-----')) {
-  throw new Error('Private key does not contain END PRIVATE KEY');
+  throw new Error('Private key is missing END PRIVATE KEY');
 }
 
 export const googleAuth = new google.auth.JWT({
@@ -34,3 +30,14 @@ export const googleAuth = new google.auth.JWT({
     'https://www.googleapis.com/auth/business.accountmanagement.accounts.readonly',
   ],
 });
+
+// Add a test method to verify credentials early
+export async function testGoogleAuth() {
+  try {
+    // Attempt to get an access token to validate the credentials
+    await googleAuth.authorize();
+    return { success: true, message: 'Authentication successful' };
+  } catch (error: any) {
+    return { success: false, error: error.message, stack: error.stack };
+  }
+}
