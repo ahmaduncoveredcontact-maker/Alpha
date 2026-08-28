@@ -1,20 +1,16 @@
 import { google } from 'googleapis';
 import { ReviewCheckResult } from '@/types';
+import { googleAuth } from '@/lib/auth/googleAuth';
 
-const SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL!;
-const PRIVATE_KEY = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY!.replace(/\\n/g, '\n');
+let mybusinessClient: any = null;
 
-export const googleAuth = new google.auth.JWT({
-  email: SERVICE_ACCOUNT_EMAIL,
-  key: PRIVATE_KEY,
-  scopes: [
-    'https://www.googleapis.com/auth/business.manage',
-    'https://www.googleapis.com/auth/business.accountmanagement.accounts.readonly',
-  ],
-});
-
-// @ts-ignore – google.mybusiness is callable at runtime
-const mybusiness = google.mybusiness({ version: 'v4', auth: googleAuth });
+function getMyBusinessClient() {
+  if (!mybusinessClient) {
+    // @ts-ignore - google.mybusiness is callable at runtime
+    mybusinessClient = google.mybusiness({ version: 'v4', auth: googleAuth });
+  }
+  return mybusinessClient;
+}
 
 export async function fetchNewReviews(
   accountId: string,
@@ -22,6 +18,7 @@ export async function fetchNewReviews(
   lastChecked: Date
 ): Promise<ReviewCheckResult['newReviews']> {
   try {
+    const mybusiness = getMyBusinessClient();
     const response = await mybusiness.accounts.locations.reviews.list({
       parent: `accounts/${accountId}/locations/${locationId}`,
       pageSize: 50,
@@ -48,6 +45,7 @@ export async function postReplyToReview(
   reviewId: string,
   replyText: string
 ): Promise<void> {
+  const mybusiness = getMyBusinessClient();
   await mybusiness.accounts.locations.reviews.reply({
     name: `accounts/${accountId}/locations/${locationId}/reviews/${reviewId}`,
     requestBody: {

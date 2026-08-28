@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
 import { google } from 'googleapis';
-import { googleAuth } from '@/lib/services/googleMyBusiness';
+import { googleAuth } from '@/lib/auth/googleAuth';
 import { getAdminSession } from '@/lib/auth/session';
 
 async function getAccounts() {
