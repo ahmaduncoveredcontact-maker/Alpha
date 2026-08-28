@@ -1,22 +1,28 @@
-// app/api/admin/sync-gbp/route.ts
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
+import { google } from 'googleapis';
 import { googleAuth } from '@/lib/services/googleMyBusiness';
 import { getAdminSession } from '@/lib/auth/session';
 
 // Helper to fetch all accounts the service account has access to
 async function getAccounts() {
-  const accountManagement = google.mybusinessaccountmanagement({ version: 'v1', auth: googleAuth });
+  const accountManagement = google.mybusinessaccountmanagement({
+    version: 'v1',
+    auth: googleAuth,
+  });
   const response = await accountManagement.accounts.list();
   return response.data.accounts || [];
 }
 
 // Helper to fetch all locations for a given account
 async function getLocations(accountId: string) {
-  const mybusiness = google.mybusinessbusinessinformation({ version: 'v1', auth: googleAuth });
-  const response = await mybusiness.accounts.locations.list({
+  const businessInfo = google.mybusinessbusinessinformation({
+    version: 'v1',
+    auth: googleAuth,
+  });
+  const response = await businessInfo.accounts.locations.list({
     parent: `accounts/${accountId}`,
-    pageSize: 100, // adjust if needed, handle pagination later
+    pageSize: 100,
   });
   return response.data.locations || [];
 }
@@ -60,7 +66,6 @@ export async function GET() {
 
     for (const location of allLocations) {
       const normalizedTitle = location.title.trim().toLowerCase();
-      // Find client with matching business name
       const client = clients.find(c => c.business_name.trim().toLowerCase() === normalizedTitle);
       if (client) {
         matched.push({
