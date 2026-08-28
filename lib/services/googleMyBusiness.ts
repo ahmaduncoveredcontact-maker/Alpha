@@ -26,10 +26,10 @@ export async function fetchNewReviews(
       parent: `accounts/${accountId}/locations/${locationId}`,
       pageSize: 50,
     });
-    const reviews = response.data.reviews || [];
+    const reviews: any[] = response.data.reviews || [];
     return reviews
-      .filter(r => new Date(r.createTime!) >= lastChecked)
-      .map(r => ({
+      .filter((r: any) => new Date(r.createTime!) >= lastChecked)
+      .map((r: any) => ({
         reviewId: r.reviewId!,
         reviewerName: r.reviewer?.displayName,
         rating: r.starRating!,
