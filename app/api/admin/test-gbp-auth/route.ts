@@ -8,7 +8,6 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Step 1: Test credentials
   const authTest = await testGoogleAuth();
   if (!authTest.success) {
     return NextResponse.json({
@@ -18,7 +17,6 @@ export async function GET() {
     }, { status: 401 });
   }
 
-  // Step 2: Try to list accounts
   try {
     const auth = getGoogleAuth();
     const accountManagement = google.mybusinessaccountmanagement({
