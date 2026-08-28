@@ -16,7 +16,7 @@ export async function POST(request: Request) {
   const parsed = OnboardingSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.errors[0].message }, { status: 400 });
   const data = parsed.data;
-  const slug = data.slug || generateSlug(data.business_name);
+  const slug = generateSlug(data.business_name);
   const accessCode = data.access_code || generateAccessCode(6);
   const hashed = await bcrypt.hash(accessCode, 10);
   const { data: client, error } = await supabaseServer.from('clients').insert({
