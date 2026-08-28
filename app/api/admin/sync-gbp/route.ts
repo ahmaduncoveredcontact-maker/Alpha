@@ -3,7 +3,7 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { getAdminSession } from '@/lib/auth/session';
 import { google } from 'googleapis';
 
-// ---- EXACT AUTH LOGIC FROM DEBUG ENDPOINT ----
+// ---- AUTH LOGIC ----
 function getCleanedKey() {
   let key = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || '';
   key = key.replace(/^["']|["']$/g, '');
@@ -24,19 +24,19 @@ function getAuth() {
     ],
   });
 }
-// ---- END OF AUTH LOGIC ----
+// ---- END AUTH LOGIC ----
 
 export async function GET() {
   if (!getAdminSession()) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Step 1: Test auth exactly like debug endpoint
-  let authTest = { success: false, error: 'Not tested' };
+  // Step 1: Test auth
+  let authTest: { success: boolean; error?: string | null } = { success: false };
   try {
     const auth = getAuth();
     await auth.authorize();
-    authTest = { success: true };
+    authTest = { success: true, error: null };
   } catch (err: any) {
     authTest = { success: false, error: err.message };
   }
@@ -44,15 +44,14 @@ export async function GET() {
   if (!authTest.success) {
     return NextResponse.json({
       success: false,
-      error: 'Authentication failed: ' + authTest.error,
+      error: 'Authentication failed: ' + (authTest.error || 'Unknown error'),
     }, { status: 401 });
   }
 
-  // Step 2: Proceed with sync logic
+  // Step 2: Sync logic
   try {
     const auth = getAuth();
 
-    // List accounts
     const accountManagement = google.mybusinessaccountmanagement({
       version: 'v1',
       auth,
@@ -71,7 +70,6 @@ export async function GET() {
       });
     }
 
-    // Fetch clients
     const { data: clients, error: clientsError } = await supabaseServer
       .from('clients')
       .select('id, business_name, slug');
