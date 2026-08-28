@@ -1,11 +1,34 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
-import { google } from 'googleapis';
-import { getGoogleAuth } from '@/lib/auth/googleAuth';
 import { getAdminSession } from '@/lib/auth/session';
+import { google } from 'googleapis';
+import { createSign } from 'crypto';
+
+// ---- Direct copy of the working auth logic from debug-auth ----
+function getCleanedKey() {
+  let key = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || '';
+  key = key.replace(/^["']|["']$/g, '');
+  key = key.replace(/\\n/g, '\n');
+  key = key.trim();
+  return key;
+}
+
+function getAuth() {
+  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  const key = getCleanedKey();
+  return new google.auth.JWT({
+    email,
+    key,
+    scopes: [
+      'https://www.googleapis.com/auth/business.manage',
+      'https://www.googleapis.com/auth/business.accountmanagement.accounts.readonly',
+    ],
+  });
+}
+// ---- End of auth logic ----
 
 async function getAccounts() {
-  const auth = getGoogleAuth();
+  const auth = getAuth();
   const accountManagement = google.mybusinessaccountmanagement({
     version: 'v1',
     auth,
@@ -15,7 +38,7 @@ async function getAccounts() {
 }
 
 async function getLocations(accountId: string) {
-  const auth = getGoogleAuth();
+  const auth = getAuth();
   const businessInfo = google.mybusinessbusinessinformation({
     version: 'v1',
     auth,
@@ -33,6 +56,17 @@ export async function GET() {
   }
 
   try {
+    // Test auth first (same as debug)
+    try {
+      const auth = getAuth();
+      await auth.authorize();
+    } catch (err: any) {
+      return NextResponse.json({
+        success: false,
+        error: 'Authentication failed: ' + err.message,
+      }, { status: 401 });
+    }
+
     const { data: clients, error: clientsError } = await supabaseServer
       .from('clients')
       .select('id, business_name, slug');
@@ -43,7 +77,7 @@ export async function GET() {
     if (accounts.length === 0) {
       return NextResponse.json({
         success: true,
-        message: 'No Google Business accounts found. Ensure the service account has been added as a manager to at least one GBP.',
+        message: 'No Google Business accounts found. Add the service account as a manager to at least one GBP.',
         updatedCount: 0,
         matchedCount: 0,
         unmatchedCount: 0,
