@@ -1,4 +1,3 @@
-// lib/services/googleMyBusiness.ts
 import { google } from 'googleapis';
 import { ReviewCheckResult } from '@/types';
 
