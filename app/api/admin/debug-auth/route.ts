@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth/session';
-import { getGoogleAuth } from '@/lib/auth/googleAuth';
 
 export async function GET() {
   if (!getAdminSession()) {
@@ -8,15 +7,27 @@ export async function GET() {
   }
 
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || 'not set';
-  const rawKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || '';
+  let rawKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || '';
   const keyLength = rawKey.length;
-  const keyStart = rawKey.substring(0, 50);
-  const keyEnd = rawKey.substring(rawKey.length - 50);
 
-  // Attempt to get the auth client
+  // Apply the same fixes as in googleAuth.ts
+  let fixedKey = rawKey.replace(/^["']|["']$/g, '');
+  fixedKey = fixedKey.replace(/\\n/g, '\n');
+  fixedKey = fixedKey.replace(/---BEGIN/g, '-----BEGIN');
+  fixedKey = fixedKey.replace(/---END/g, '-----END');
+
+  const rawStart = rawKey.substring(0, 50);
+  const fixedStart = fixedKey.substring(0, 50);
+
+  // Attempt to authorize with the fixed key
   let authStatus: any = { success: false, error: 'Not tested' };
   try {
-    const auth = getGoogleAuth();
+    const { google } = require('googleapis');
+    const auth = new google.auth.JWT({
+      email,
+      key: fixedKey,
+      scopes: ['https://www.googleapis.com/auth/business.manage'],
+    });
     await auth.authorize();
     authStatus = { success: true };
   } catch (err: any) {
@@ -26,8 +37,8 @@ export async function GET() {
   return NextResponse.json({
     email,
     keyLength,
-    keyStart,
-    keyEnd,
+    rawStart,
+    fixedStart,
     authStatus,
   });
 }
