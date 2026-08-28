@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
-import { getGoogleAuth, testGoogleAuth } from '@/lib/auth/googleAuth';
 import { getAdminSession } from '@/lib/auth/session';
 import { google } from 'googleapis';
+import { getGoogleAuth, testGoogleAuth } from '@/lib/auth/googleAuth';
 
 export async function GET() {
   if (!getAdminSession()) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Step 1: Test credentials using the shared module
+  // --- Exactly same auth test as debug endpoint ---
   const authTest = await testGoogleAuth();
   if (!authTest.success) {
     return NextResponse.json({
@@ -17,12 +17,12 @@ export async function GET() {
       error: 'Authentication failed: ' + authTest.error,
     }, { status: 401 });
   }
+  // --- End of auth test ---
 
-  // Step 2: Proceed with sync logic
+  // Now proceed with sync logic using the same auth
   try {
     const auth = getGoogleAuth();
 
-    // List accounts
     const accountManagement = google.mybusinessaccountmanagement({
       version: 'v1',
       auth,
@@ -41,7 +41,6 @@ export async function GET() {
       });
     }
 
-    // Fetch clients
     const { data: clients, error: clientsError } = await supabaseServer
       .from('clients')
       .select('id, business_name, slug');
@@ -83,7 +82,6 @@ export async function GET() {
       });
     }
 
-    // Match locations with clients
     const matched: { clientId: string; accountId: string; locationId: string }[] = [];
     const unmatchedLocations: any[] = [];
 
