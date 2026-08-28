@@ -13,6 +13,10 @@ export async function POST(request: Request) {
   if (error || !client) return NextResponse.json({ error: 'Client not found' }, { status: 404 });
 
   const canCall = client.outbound_calling_enabled && client.consent_confirmed;
+  
+  // Explicitly type the status to avoid TypeScript union error
+  const status: 'No Answer' | 'General Inquiry' = canCall ? 'No Answer' : 'General Inquiry';
+  
   const logEntry = {
     client_slug: slug,
     timestamp: new Date().toISOString(),
@@ -20,7 +24,7 @@ export async function POST(request: Request) {
     customer_name: name,
     customer_phone: phone,
     summary: service,
-    status: canCall ? 'No Answer' : 'General Inquiry',
+    status: status,
     booked_time: null,
     recording_url: null,
   };
