@@ -10,13 +10,15 @@ function getAuthCredentials() {
   if (!email) throw new Error('Missing GOOGLE_SERVICE_ACCOUNT_EMAIL');
   if (!key) throw new Error('Missing GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY');
 
-  // Clean the key:
-  // 1. Remove outer quotes (single or double)
+  // 1. Remove outer quotes
   key = key.replace(/^["']|["']$/g, '');
-  // 2. Replace literal \n with actual newlines
+  // 2. Convert literal \n to actual newlines
   key = key.replace(/\\n/g, '\n');
+  // 3. Fix malformed PEM headers (e.g., ---BEGIN -> -----BEGIN)
+  key = key.replace(/---BEGIN/g, '-----BEGIN');
+  key = key.replace(/---END/g, '-----END');
 
-  // Ensure it's valid PEM
+  // Validate
   if (!key.includes('-----BEGIN PRIVATE KEY-----')) {
     throw new Error('Private key does not contain BEGIN PRIVATE KEY');
   }
