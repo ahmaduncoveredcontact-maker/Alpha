@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import { googleAuth, testGoogleAuth } from '@/lib/auth/googleAuth';
+import { getGoogleAuth, testGoogleAuth } from '@/lib/auth/googleAuth';
 import { getAdminSession } from '@/lib/auth/session';
 
 export async function GET() {
@@ -8,21 +8,22 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // First, test the auth credentials
+  // Step 1: Test credentials
   const authTest = await testGoogleAuth();
   if (!authTest.success) {
     return NextResponse.json({
       success: false,
       error: 'Authentication failed',
       details: authTest.error,
-      stack: authTest.stack,
     }, { status: 401 });
   }
 
+  // Step 2: Try to list accounts
   try {
+    const auth = getGoogleAuth();
     const accountManagement = google.mybusinessaccountmanagement({
       version: 'v1',
-      auth: googleAuth,
+      auth,
     });
     const response = await accountManagement.accounts.list();
     return NextResponse.json({

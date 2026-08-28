@@ -1,22 +1,24 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
 import { google } from 'googleapis';
-import { googleAuth } from '@/lib/auth/googleAuth';
+import { getGoogleAuth } from '@/lib/auth/googleAuth';
 import { getAdminSession } from '@/lib/auth/session';
 
 async function getAccounts() {
+  const auth = getGoogleAuth();
   const accountManagement = google.mybusinessaccountmanagement({
     version: 'v1',
-    auth: googleAuth,
+    auth,
   });
   const response = await accountManagement.accounts.list();
   return response.data.accounts || [];
 }
 
 async function getLocations(accountId: string) {
+  const auth = getGoogleAuth();
   const businessInfo = google.mybusinessbusinessinformation({
     version: 'v1',
-    auth: googleAuth,
+    auth,
   });
   const response = await businessInfo.accounts.locations.list({
     parent: `accounts/${accountId}`,
@@ -35,11 +37,20 @@ export async function GET() {
       .from('clients')
       .select('id, business_name, slug');
 
-    if (clientsError) {
-      throw new Error(`Failed to fetch clients: ${clientsError.message}`);
-    }
+    if (clientsError) throw new Error(`Failed to fetch clients: ${clientsError.message}`);
 
     const accounts = await getAccounts();
+    if (accounts.length === 0) {
+      return NextResponse.json({
+        success: true,
+        message: 'No Google Business accounts found. Ensure the service account has been added as a manager to at least one GBP.',
+        updatedCount: 0,
+        matchedCount: 0,
+        unmatchedCount: 0,
+        unmatchedLocations: []
+      });
+    }
+
     let allLocations: any[] = [];
     for (const account of accounts) {
       const accountId = account.name!.replace('accounts/', '');
@@ -53,6 +64,17 @@ export async function GET() {
           phoneNumber: loc.phoneNumbers?.[0] || '',
         }))
       );
+    }
+
+    if (allLocations.length === 0) {
+      return NextResponse.json({
+        success: true,
+        message: 'No business locations found under any account.',
+        updatedCount: 0,
+        matchedCount: 0,
+        unmatchedCount: 0,
+        unmatchedLocations: []
+      });
     }
 
     const matched: { clientId: string; accountId: string; locationId: string }[] = [];
@@ -81,7 +103,6 @@ export async function GET() {
           gbp_location_id: match.locationId,
         })
         .eq('id', match.clientId);
-
       if (!updateError) updatedCount++;
     }
 
@@ -101,9 +122,9 @@ export async function GET() {
     });
   } catch (error: any) {
     console.error('Sync GBP error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      success: false,
+      error: error.message || 'Internal server error',
+    }, { status: 500 });
   }
 }
